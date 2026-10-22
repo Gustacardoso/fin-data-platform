@@ -1,0 +1,7 @@
+venv/
+frontend/
+tests/
+.env
+*.log
+__pycache__/
+.git/

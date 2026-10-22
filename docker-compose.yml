@@ -1,0 +1,55 @@
+name: fin-data
+
+services:
+  db:
+    image: postgres:16
+    container_name: fin-data
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?defina POSTGRES_PASSWORD no .env}
+      POSTGRES_DB: findata
+    ports:
+      - "5432:5432"
+    volumes:
+      - fin-data-pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d findata"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  api:
+    build: .
+    container_name: fin-data-api
+    environment:
+      DATABASE_URL: postgresql+psycopg2://postgres:${POSTGRES_PASSWORD}@db:5432/findata
+    ports:
+      - "8000:8000"
+    depends_on:
+      db:
+        condition: service_healthy
+
+  web:
+    build:
+      context: ./frontend
+      args:
+        VITE_API_URL: http://localhost:8000
+    container_name: fin-data-web
+    ports:
+      - "5173:80"
+    depends_on:
+      - api
+
+  # Carga de dados: docker compose run --rm pipeline
+  pipeline:
+    build: .
+    profiles: ["tools"]
+    command: ["python", "-m", "pipeline.jobs.run_pipeline"]
+    environment:
+      DATABASE_URL: postgresql+psycopg2://postgres:${POSTGRES_PASSWORD}@db:5432/findata
+    depends_on:
+      db:
+        condition: service_healthy
+
+volumes:
+  fin-data-pgdata:
